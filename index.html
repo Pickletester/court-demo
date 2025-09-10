@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Court 1 Pulse Demo (1-minute)</title>
+  <style>
+    html, body { margin:0; padding:0; width:100%; height:100%; background:#0c1326; font-family: Arial, Helvetica, sans-serif; }
+    :root { --bar-height: 96px; }
+    .graphic-bar {
+      position: fixed; left: 0; bottom: 0; width: 100%; height: var(--bar-height);
+      background: linear-gradient(90deg,#14203a,#22335d 70%);
+      display: grid; grid-template-columns: 1.1fr 2.2fr 1.3fr 2.2fr 1.5fr;
+      box-sizing: border-box; gap: 8px; padding: 6px 8px;
+    }
+    #pulseOverlay {
+      position: fixed; left: 0; bottom: 0; width: 100%; height: var(--bar-height);
+      background: #800000; pointer-events: none; opacity: 0; transition: opacity 40ms linear;
+      mix-blend-mode: multiply;
+    }
+    .section { position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; border-radius: 6px; }
+    .section:not(#court-number)::before { content:""; position:absolute; inset: 4px; background: rgba(0,0,0,0.35); border-radius: 6px; }
+    .label { font-weight:700; text-transform:uppercase; font-size: 10px; letter-spacing: 0.08em; z-index:1; margin-bottom: 2px; }
+    #current-event .label { color: #6cff6c; }
+    #next-event .label { color: #ffe56b; }
+    #countdown .label, #current-time .label { color:#d4e5fd; }
+    .value { font-size: 16px; font-weight:800; z-index:1; text-align:center; line-height: 1.15; color:#fff; }
+    #current-event .value, #next-event .value { font-size: 13px; font-weight:700; line-height:1.1; }
+    #countdown .value { font-size: 22px; }
+    #court-number .label { font-size: 22px; margin-right: 12px; color:#ffffff; }
+    #court-number .value { font-size: 36px; font-weight: 900; padding: 4px 10px; border: 3px solid #ffffff; border-radius: 8px; color:#ffffff; }
+    .meta { font-size: 11px; color:#d8d8d8; opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <div class="graphic-bar" id="bar">
+    <div id="court-number" class="section">
+      <div class="label">Court</div>
+      <div class="value" id="court-val">1</div>
+    </div>
+    <div id="current-event" class="section">
+      <div class="label">In Progress</div>
+      <div class="value" id="cur-val">Starting demo…</div>
+    </div>
+    <div id="countdown" class="section">
+      <div class="label" id="cd-label">Time Left</div>
+      <div class="value" id="cd-val">--</div>
+    </div>
+    <div id="next-event" class="section">
+      <div class="label">Upcoming</div>
+      <div class="value" id="next-val">No upcoming (demo)</div>
+    </div>
+    <div id="current-time" class="section">
+      <div class="label">Current Time</div>
+      <div class="value" id="clock">--:--</div>
+    </div>
+  </div>
+  <div id="pulseOverlay"></div>
+
+<script>
+function tickClock(){
+  const now=new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true});
+  setTimeout(tickClock, 1000);
+}
+tickClock();
+
+let rafId=null, pulseActive=false, basePeriod=1000, startTs=null;
+function startPulse(periodMs){
+  if(!pulseActive){ pulseActive=true; startTs=null; }
+  basePeriod = Math.max(120, periodMs|0);
+  function loop(ts){
+    if(!pulseActive){ document.getElementById('pulseOverlay').style.opacity='0'; rafId=null; return; }
+    if(startTs===null) startTs=ts;
+    const t = (ts - startTs) % basePeriod;
+    const phase = Math.sin((t/basePeriod)*Math.PI);
+    const op = 0.1 + 0.8 * phase;
+    document.getElementById('pulseOverlay').style.opacity = String(op);
+    rafId = requestAnimationFrame(loop);
+  }
+  if(!rafId) rafId = requestAnimationFrame(loop);
+}
+function stopPulse(){
+  pulseActive=false;
+  if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
+  document.getElementById('pulseOverlay').style.opacity='0';
+}
+
+function startCountdown(target){
+  function tick(){
+    const now=new Date(); const diff=target - now.getTime();
+    const el=document.getElementById('cd-val');
+    if(diff>0){
+      const m=Math.floor(diff/60000), s=Math.floor((diff%60000)/1000);
+      el.textContent = diff>60000 ? (m+'m') : (s+'s');
+      if (diff<=60000){
+        if (diff<=10000)      startPulse(250);
+        else if (diff<=30000) startPulse(500);
+        else                  startPulse(1000);
+      } else {
+        stopPulse();
+      }
+      setTimeout(tick, 1000);
+    } else {
+      el.textContent='Time Expired'; el.style.color='#ff4d4d';
+      stopPulse();
+    }
+  }
+  tick();
+}
+
+// Start demo event (1 min long)
+(function initDemo(){
+  const now = new Date();
+  const end = new Date(now.getTime() + 60*1000);
+  document.getElementById('cur-val').innerHTML = `Demo Match<div class='meta'>${now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})} - ${end.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</div>`;
+  startCountdown(end.getTime());
+})();
+</script>
+</body>
+</html>
